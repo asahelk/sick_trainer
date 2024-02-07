@@ -74,14 +74,5 @@ fun MyImageDisplay(viewModel: CameraViewViewModel) {
 
 }
 
-//interface Platform {
-//    val name: String
-//}
-//
-//expect fun getPlatform(): Platform
-
-
 @Composable
 expect fun takePictureNativeView(imageHandler: ImageHandler, redraw: Int = 0)
-
-//expect fun getPlatform(): String
