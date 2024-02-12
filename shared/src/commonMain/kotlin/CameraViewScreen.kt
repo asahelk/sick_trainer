@@ -34,11 +34,12 @@ fun CrackDetailScreen() {
             viewModel.showCameraView()
             buttonClick.value++
         }) {
-            Text("Capture photo")
+            Text("Enable camera")
         }
         if (showCamera) {
             CameraScreen(viewModel, buttonClick.value)
         }
+        MyImageDisplay(viewModel)
     }
 
 }
@@ -46,9 +47,10 @@ fun CrackDetailScreen() {
 @Composable
 fun CameraScreen(viewModel: CameraViewViewModel, buttonClick: Int) {
 
-    Column(modifier = Modifier.height(50.dp).fillMaxWidth()) {
+    Column(modifier = Modifier.height(300.dp).fillMaxWidth()) {
         //Overlay content here
-        takePictureNativeView(viewModel, buttonClick)
+//        TakePictureNativeView(viewModel, buttonClick)
+        CameraContent(viewModel)
     }
 }
 
@@ -75,4 +77,7 @@ fun MyImageDisplay(viewModel: CameraViewViewModel) {
 }
 
 @Composable
-expect fun takePictureNativeView(imageHandler: ImageHandler, redraw: Int = 0)
+expect fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int = 0)
+
+@Composable
+expect fun CameraContent(imageHandler: ImageHandler)

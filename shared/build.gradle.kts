@@ -58,7 +58,15 @@ kotlin {
                 api(libs.androidx.activity.compose)
                 implementation(libs.compose.ui.tooling.preview)
                 implementation(libs.ktor.client.android)
+                api(compose.preview)
+                api(compose.uiTooling)
+                implementation("androidx.camera:camera-core:1.3.1")
+                implementation("androidx.camera:camera-camera2:1.3.1")
+                implementation("androidx.camera:camera-lifecycle:1.3.1")
 
+                implementation("androidx.camera:camera-view:1.3.1")
+                implementation("androidx.camera:camera-extensions:1.3.1")
+                implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 //                api(libs.androidx.activity.compose)
 //                api("androidx.appcompat:appcompat:1.6.1")
 //                api("androidx.core:core-ktx:1.10.1")
@@ -97,5 +105,10 @@ android {
     kotlin {
         jvmToolchain(17)
     }
-
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
+    }
 }

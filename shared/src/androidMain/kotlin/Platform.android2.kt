@@ -1,3 +1,4 @@
+/*
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -174,18 +175,71 @@ actual fun CameraContent(imageHandler: ImageHandler) {
                         .fillMaxSize()
                         .padding(paddingValues),
                     factory = { context ->
-                        PreviewView(context).apply {
-                            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                            setBackgroundColor(Color.BLACK)
-                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        */
+/*
+                        val previewView = PreviewView(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        setBackgroundColor(Color.BLACK)
+                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        scaleType = PreviewView.ScaleType.FILL_START
+                    }.also { previewView ->
+                        previewView.controller = cameraController
+                        cameraController.bindToLifecycle(lifecycleOwner)
+                        cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                        cameraController.imageCaptureMode =
+                            ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+
+                    }*//*
+
+                        val previewView = PreviewView(context).apply {
                             scaleType = PreviewView.ScaleType.FIT_CENTER
-                        }.also { previewView ->
-                            previewView.controller = cameraController
-                            cameraController.bindToLifecycle(lifecycleOwner)
-                            cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-                            cameraController.imageCaptureMode =
-                                ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
                         }
+
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+
+                        cameraProviderFuture.addListener({
+                            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+
+                            val resolutionSelector =
+                                ResolutionSelector.Builder().setResolutionStrategy(
+                                    ResolutionStrategy(
+                                        Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_NONE
+                                    )
+                                ).build()
+
+                            val imageAnalyzer = ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build().also {
+                                    it.setAnalyzer(cameraExecutor, ImageAnalysis.Analyzer { image ->
+                                        // Your image analysis logic here
+                                        image.close()
+                                    })
+                                }
+
+                            imageCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
+
+                            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+                            try {
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    context as LifecycleOwner,
+                                    cameraSelector,
+                                    preview,
+                                    imageAnalyzer,
+                                    imageCapture
+                                )
+                            } catch (exc: Exception) {
+                                // Handle any errors
+                                cameraExecutor.shutdown()
+                            }
+                        }, ContextCompat.getMainExecutor(context))
+
+                        previewView
                     })
 
             }
@@ -206,51 +260,41 @@ private fun capturePhoto(
     cameraExecutorService: ExecutorService
 ) {
 
-    val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
-
-
-    cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
-        override fun onCaptureSuccess(image: ImageProxy) {
-            val correctedBitmap: Bitmap = image
-                .toBitmap()
-                .rotateBitmap(image.imageInfo.rotationDegrees)
+    imageCapture?.takePicture(cameraExecutorService,
+        object : ImageCapture.OnImageCapturedCallback() {
+            override fun onCaptureSuccess(image: ImageProxy) {
+                val correctedBitmap: Bitmap =
+                    image.toBitmap().rotateBitmap(image.imageInfo.rotationDegrees)
 
 //            onPhotoCaptured(correctedBitmap)
-            imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
-            image.close()
-        }
+                imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
+                image.close()
+            }
 
-        override fun onError(exception: ImageCaptureException) {
-            Log.e("CameraContent", "Error capturing image", exception)
-        }
-    })
-}
+            override fun onError(exception: ImageCaptureException) {
+                // Image capture error handling
+            }
+        })
 
-fun loadImageBitmap(imageUri: Uri, context: Context): Bitmap? {
-    var bitmap: Bitmap? = null
+    val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
 
-    // Load bitmap in a side-effect
+    val imageCapture = ImageCapture.Builder()
+//        .setTargetRotation()
+        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
-    bitmap = if (Build.VERSION.SDK_INT < 28) {
-        MediaStore.Images.Media.getBitmap(context.contentResolver, imageUri)
-    } else {
-        val source = ImageDecoder.createSource(context.contentResolver, imageUri)
-        ImageDecoder.decodeBitmap(source)
-    }
-    return bitmap
-}
-
-fun Context.createImageFile(): File {
-    // Create an image file name
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
-    val imageFileName = "JPEG_" + timeStamp + "_"
-    val image = File.createTempFile(
-        imageFileName, /* prefix */
-        ".jpg", /* suffix */
-        externalCacheDir      /* directory */
-    )
-    return image
-}
-
-@Composable
-fun MainView() = CrackDetailScreen()
+//    cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
+//        override fun onCaptureSuccess(image: ImageProxy) {
+//            val correctedBitmap: Bitmap = image
+//                .toBitmap()
+//                .rotateBitmap(image.imageInfo.rotationDegrees)
+//
+////            onPhotoCaptured(correctedBitmap)
+//            imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
+//            image.close()
+//        }
+//
+//        override fun onError(exception: ImageCaptureException) {
+//            Log.e("CameraContent", "Error capturing image", exception)
+//        }
+//    })
+}*/

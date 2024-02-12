@@ -18,24 +18,32 @@ kotlin {
     androidTarget()
 
     sourceSets {
+
         val androidMain by getting {
             dependencies {
-                implementation(project(":shared"))
+                implementation(libs.compose.ui.tooling.preview)
+                api(libs.androidx.activity.compose)
+                implementation("androidx.camera:camera-camera2:1.3.1")
+                implementation("androidx.camera:camera-lifecycle:1.3.1")
+                implementation("androidx.camera:camera-view:1.3.1")
+                implementation("androidx.camera:camera-extensions:1.3.1")
             }
         }
-//        androidMain.dependencies {
-//            implementation(libs.compose.ui.tooling.preview)
-//            implementation(libs.androidx.activity.compose)
-//        }
-//        commonMain.dependencies {
-//            implementation(compose.runtime)
-//            implementation(compose.foundation)
-//            implementation(compose.material)
-//            implementation(compose.ui)
-//            @OptIn(ExperimentalComposeLibrary::class)
-//            implementation(compose.components.resources)
-//            implementation(projects.shared)
-//        }
+
+        val commonMain by getting {
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                @OptIn(ExperimentalComposeLibrary::class)
+                implementation(compose.components.resources)
+                implementation(projects.shared)
+
+            }
+        }
+
     }
 }
 
@@ -73,6 +81,12 @@ android {
     }
     kotlin {
         jvmToolchain(17)
+    }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
 }
 
