@@ -6,20 +6,32 @@ import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
-import android.util.Size
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,35 +47,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Objects
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.core.Preview.SurfaceProvider
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.LifecycleOwner
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import utils.rotateBitmap
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Objects
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -146,6 +139,8 @@ actual fun CameraContent(imageHandler: ImageHandler) {
         Executors.newSingleThreadExecutor()
     }
 
+    val handler = Handler(Looper.getMainLooper())
+
     val cameraPermissionState: PermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     if (cameraPermissionState.status.isGranted) {
@@ -190,6 +185,34 @@ actual fun CameraContent(imageHandler: ImageHandler) {
 
             }
         }
+
+
+
+
+//        LaunchedEffect(Unit) {
+//            while(true) {
+//
+//                delay(5000)
+//                capturePhoto(context,cameraController,imageHandler,lifecycleOwner,imageCapture,cameraExecutor)
+//            }
+//        }
+
+
+        val captureTask = object : Runnable {
+            override fun run() {
+                capturePhoto(
+                    context,
+                    cameraController,
+                    imageHandler,
+                    lifecycleOwner,
+                    imageCapture,
+                    cameraExecutor
+                )
+                handler.postDelayed(this, 5000)
+            }
+        }
+        handler.post(captureTask)
+
     } else {
         LaunchedEffect(Unit) {
             cameraPermissionState.launchPermissionRequest()
@@ -207,7 +230,6 @@ private fun capturePhoto(
 ) {
 
     val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
-
 
     cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
         override fun onCaptureSuccess(image: ImageProxy) {
