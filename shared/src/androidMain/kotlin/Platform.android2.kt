@@ -172,7 +172,7 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                             setBackgroundColor(Color.BLACK)
                             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                             scaleType = PreviewView.ScaleType.FIT_CENTER
-
+                            
                         }.also { previewView ->
                             previewView.controller = cameraController
 //                            cameraController.bindToLifecycle(lifecycleOwner)

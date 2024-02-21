@@ -84,7 +84,6 @@ fun MyImageDisplay(viewModel: CameraViewViewModel) {
                 contentDescription = null
             )
         }
-
     }
 
 }
