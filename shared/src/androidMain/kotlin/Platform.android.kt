@@ -1,3 +1,4 @@
+/*
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -267,12 +268,18 @@ fun Context.createImageFile(): File {
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
     val imageFileName = "JPEG_" + timeStamp + "_"
     val image = File.createTempFile(
-        imageFileName, /* prefix */
-        ".jpg", /* suffix */
-        externalCacheDir      /* directory */
+        imageFileName, */
+/* prefix *//*
+
+        ".jpg", */
+/* suffix *//*
+
+        externalCacheDir      */
+/* directory *//*
+
     )
     return image
 }
 
 @Composable
-fun MainView() = CrackDetailScreen()
+fun MainView() = CrackDetailScreen()*/

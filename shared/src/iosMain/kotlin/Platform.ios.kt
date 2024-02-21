@@ -39,7 +39,7 @@ actual fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int) {
 }
 
 @Composable
-actual fun CameraContent(imageHandler: ImageHandler) {
+actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
 
 }
 

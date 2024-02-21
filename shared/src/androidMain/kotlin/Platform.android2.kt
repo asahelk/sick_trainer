@@ -1,4 +1,3 @@
-/*
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -53,8 +52,16 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -136,7 +143,7 @@ actual fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int) {
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-actual fun CameraContent(imageHandler: ImageHandler) {
+actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
 
     var imageCapture: ImageCapture? = null
     val context = LocalContext.current
@@ -152,47 +159,27 @@ actual fun CameraContent(imageHandler: ImageHandler) {
     if (cameraPermissionState.status.isGranted) {
         Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
 
-        Scaffold(modifier = Modifier.fillMaxSize(), floatingActionButton = {
-            ExtendedFloatingActionButton(text = { Text(text = "Take photo") }, onClick = {
-                capturePhoto(
-                    context,
-                    cameraController,
-                    imageHandler,
-                    lifecycleOwner,
-                    imageCapture,
-                    cameraExecutor
-                )
-            }, icon = {
-                Icon(
-                    imageVector = Icons.Filled.Build, contentDescription = "Camera capture icon"
-                )
-            })
-        }) { paddingValues: PaddingValues ->
+        Scaffold(modifier = Modifier.fillMaxSize()) { paddingValues: PaddingValues ->
 
             Box(modifier = Modifier.fillMaxSize()) {
-                AndroidView(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+
+                AndroidView(modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
                     factory = { context ->
-                        */
-/*
                         val previewView = PreviewView(context).apply {
-                        layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                        setBackgroundColor(Color.BLACK)
-                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                        scaleType = PreviewView.ScaleType.FILL_START
-                    }.also { previewView ->
-                        previewView.controller = cameraController
-                        cameraController.bindToLifecycle(lifecycleOwner)
-                        cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-                        cameraController.imageCaptureMode =
-                            ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
-
-                    }*//*
-
-                        val previewView = PreviewView(context).apply {
+                            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                            setBackgroundColor(Color.BLACK)
+                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                             scaleType = PreviewView.ScaleType.FIT_CENTER
+
+                        }.also { previewView ->
+                            previewView.controller = cameraController
+//                            cameraController.bindToLifecycle(lifecycleOwner)
+                            cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                            cameraController.imageCaptureMode =
+                                ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+
                         }
 
                         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -204,6 +191,7 @@ actual fun CameraContent(imageHandler: ImageHandler) {
                                 it.setSurfaceProvider(previewView.surfaceProvider)
                             }
 
+
                             val resolutionSelector =
                                 ResolutionSelector.Builder().setResolutionStrategy(
                                     ResolutionStrategy(
@@ -211,21 +199,24 @@ actual fun CameraContent(imageHandler: ImageHandler) {
                                     )
                                 ).build()
 
-                            val imageAnalyzer = ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                .build().also {
-                                    it.setAnalyzer(cameraExecutor, ImageAnalysis.Analyzer { image ->
-                                        // Your image analysis logic here
-                                        image.close()
-                                    })
-                                }
+                            val imageAnalyzer =
+                                ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
+                                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                    .build().also {
+                                        it.setAnalyzer(cameraExecutor,
+                                            ImageAnalysis.Analyzer { image ->
+                                                // Your image analysis logic here
+                                                image.close()
+                                            })
+                                    }
 
-                            imageCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
+                            imageCapture = ImageCapture.Builder()
+                                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
 
                             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
                             try {
-                                cameraProvider.unbindAll()
+//                                cameraProvider.unbindAll()
                                 cameraProvider.bindToLifecycle(
                                     context as LifecycleOwner,
                                     cameraSelector,
@@ -235,6 +226,8 @@ actual fun CameraContent(imageHandler: ImageHandler) {
                                 )
                             } catch (exc: Exception) {
                                 // Handle any errors
+                                Log.e("ERRROR", exc.message, exc)
+//                                cameraProvider.unbindAll()
                                 cameraExecutor.shutdown()
                             }
                         }, ContextCompat.getMainExecutor(context))
@@ -242,6 +235,39 @@ actual fun CameraContent(imageHandler: ImageHandler) {
                         previewView
                     })
 
+            }
+            Column(
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(32.dp)
+            ) {
+
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
+                    Button(modifier = Modifier.height(60.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        onClick = {
+                            capturePhoto1(
+                                context, cameraController, imageHandler
+                            )
+                        }) {
+                        Text(text = "Take Photo 1")
+                    }
+
+                    Button(modifier = Modifier.height(60.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        onClick = {
+                            capturePhoto2(
+                                context, imageHandler, imageCapture, cameraExecutor
+                            )
+                        }) {
+                        Text(text = "Take Photo 2")
+                    }
+                }
             }
         }
     } else {
@@ -251,16 +277,15 @@ actual fun CameraContent(imageHandler: ImageHandler) {
     }
 }
 
-private fun capturePhoto(
+private fun capturePhoto2(
     context: Context,
-    cameraController: LifecycleCameraController,
     imageHandler: ImageHandler,
-    lifecycleOwner: LifecycleOwner,
     imageCapture: ImageCapture?,
     cameraExecutorService: ExecutorService
 ) {
 
-    imageCapture?.takePicture(cameraExecutorService,
+    imageCapture?.takePicture(
+        cameraExecutorService,
         object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 val correctedBitmap: Bitmap =
@@ -273,6 +298,7 @@ private fun capturePhoto(
 
             override fun onError(exception: ImageCaptureException) {
                 // Image capture error handling
+                Log.e("ERRROR", exception.message, exception)
             }
         })
 
@@ -282,19 +308,55 @@ private fun capturePhoto(
 //        .setTargetRotation()
         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
-//    cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
-//        override fun onCaptureSuccess(image: ImageProxy) {
-//            val correctedBitmap: Bitmap = image
-//                .toBitmap()
-//                .rotateBitmap(image.imageInfo.rotationDegrees)
-//
-////            onPhotoCaptured(correctedBitmap)
-//            imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
-//            image.close()
-//        }
-//
-//        override fun onError(exception: ImageCaptureException) {
-//            Log.e("CameraContent", "Error capturing image", exception)
-//        }
-//    })
-}*/
+}
+
+private fun capturePhoto1(
+    context: Context,
+    cameraController: LifecycleCameraController,
+    imageHandler: ImageHandler,
+) {
+
+    val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
+
+    cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
+        override fun onCaptureSuccess(image: ImageProxy) {
+            val correctedBitmap: Bitmap =
+                image.toBitmap().rotateBitmap(image.imageInfo.rotationDegrees)
+
+//            onPhotoCaptured(correctedBitmap)
+            imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
+            image.close()
+        }
+
+        override fun onError(exception: ImageCaptureException) {
+            Log.e("CameraContent", "Error capturing image", exception)
+        }
+    })
+}
+
+
+fun loadImageBitmap(imageUri: Uri, context: Context): Bitmap? {
+    var bitmap: Bitmap? = null
+
+    // Load bitmap in a side-effect
+
+    bitmap = if (Build.VERSION.SDK_INT < 28) {
+        MediaStore.Images.Media.getBitmap(context.contentResolver, imageUri)
+    } else {
+        val source = ImageDecoder.createSource(context.contentResolver, imageUri)
+        ImageDecoder.decodeBitmap(source)
+    }
+    return bitmap
+}
+
+fun Context.createImageFile(): File {
+    // Create an image file name
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+    val imageFileName = "JPEG_" + timeStamp + "_"
+    val image = File.createTempFile(
+        imageFileName, /* prefix */
+        ".jpg", /* suffix */
+        externalCacheDir      /* directory */
+    )
+    return image
+}

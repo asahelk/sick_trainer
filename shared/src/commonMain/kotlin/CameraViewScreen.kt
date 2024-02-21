@@ -1,6 +1,7 @@
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,19 +26,31 @@ fun CrackDetailScreen() {
 
     val showCamera by viewModel.showCameraView.collectAsState()
 
-    var buttonClick = remember {
+    val typeButtonClicked = remember {
         mutableStateOf(0)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Button(onClick = {
-            viewModel.showCameraView()
-            buttonClick.value++
-        }) {
-            Text("Enable camera")
+
+        Row {
+            Button(onClick = {
+                viewModel.showCameraView()
+                typeButtonClicked.value = 0
+            }) {
+                Text("Enable camera 1")
+            }
+
+            Button(onClick = {
+                viewModel.showCameraView()
+                typeButtonClicked.value = 1
+            }) {
+                Text("Enable camera 2")
+            }
         }
+
+
         if (showCamera) {
-            CameraScreen(viewModel, buttonClick.value)
+            CameraScreen(viewModel, typeButtonClicked.value)
         }
         MyImageDisplay(viewModel)
     }
@@ -45,12 +58,12 @@ fun CrackDetailScreen() {
 }
 
 @Composable
-fun CameraScreen(viewModel: CameraViewViewModel, buttonClick: Int) {
+fun CameraScreen(viewModel: CameraViewViewModel, typeButtonClicked: Int) {
 
     Column(modifier = Modifier.height(300.dp).fillMaxWidth()) {
         //Overlay content here
 //        TakePictureNativeView(viewModel, buttonClick)
-        CameraContent(viewModel)
+        CameraContent(viewModel,typeButtonClicked)
     }
 }
 
@@ -80,4 +93,4 @@ fun MyImageDisplay(viewModel: CameraViewViewModel) {
 expect fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int = 0)
 
 @Composable
-expect fun CameraContent(imageHandler: ImageHandler)
+expect fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int)
