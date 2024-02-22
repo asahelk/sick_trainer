@@ -9,17 +9,36 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,49 +51,25 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Objects
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.core.Preview.SurfaceProvider
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.LifecycleOwner
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import utils.rotateBitmap
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Objects
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 
 class AndroidPlatform : Platform {
@@ -145,9 +140,15 @@ actual fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int) {
 @Composable
 actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
 
-    var imageCapture: ImageCapture? = null
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var imageCapture: ImageCapture? = null
+//    var cameraProvider: ProcessCameraProvider? by remember {
+//        mutableStateOf(null)
+//    }
+//    val cameraController: LifecycleCameraController? by remember { mutableStateOf(null)}
+
     val cameraController = remember { LifecycleCameraController(context) }
 
     val cameraExecutor: ExecutorService = remember {
@@ -157,6 +158,7 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
     val cameraPermissionState: PermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     if (cameraPermissionState.status.isGranted) {
+
         Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
 
         Scaffold(modifier = Modifier.fillMaxSize()) { paddingValues: PaddingValues ->
@@ -172,67 +174,50 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                             setBackgroundColor(Color.BLACK)
                             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                             scaleType = PreviewView.ScaleType.FIT_CENTER
-                            
-                        }.also { previewView ->
-                            previewView.controller = cameraController
-//                            cameraController.bindToLifecycle(lifecycleOwner)
-                            cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-                            cameraController.imageCaptureMode =
-                                ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
 
                         }
 
+                        previewView
+                    },
+                    update = { previewView ->
+
                         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+                        val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+                        cameraProvider.unbindAll()
 
-                        cameraProviderFuture.addListener({
-                            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-                            val preview = Preview.Builder().build().also {
-                                it.setSurfaceProvider(previewView.surfaceProvider)
+                        when(typeButtonClicked){
+                            0-> {
+                                previewView.controller = cameraController
+                                cameraController.unbind()
+                                cameraController.bindToLifecycle(lifecycleOwner)
+                                cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                                cameraController.imageCaptureMode =
+                                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
                             }
+                            1->{
 
+                                cameraProviderFuture.addListener({
 
-                            val resolutionSelector =
-                                ResolutionSelector.Builder().setResolutionStrategy(
-                                    ResolutionStrategy(
-                                        Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_NONE
-                                    )
-                                ).build()
-
-                            val imageAnalyzer =
-                                ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
-                                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                    .build().also {
-                                        it.setAnalyzer(cameraExecutor,
-                                            ImageAnalysis.Analyzer { image ->
-                                                // Your image analysis logic here
-                                                image.close()
-                                            })
+                                    val preview = Preview.Builder().build().apply {
+                                        setSurfaceProvider(previewView.surfaceProvider)
                                     }
 
-                            imageCapture = ImageCapture.Builder()
-                                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
+                                    imageCapture = ImageCapture.Builder()
+                                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                                        .build()
 
-                            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-
-                            try {
-//                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    context as LifecycleOwner,
-                                    cameraSelector,
-                                    preview,
-                                    imageAnalyzer,
-                                    imageCapture
-                                )
-                            } catch (exc: Exception) {
-                                // Handle any errors
-                                Log.e("ERRROR", exc.message, exc)
-//                                cameraProvider.unbindAll()
-                                cameraExecutor.shutdown()
+                                    bindCameraUseCases(
+                                        cameraProvider,
+                                        lifecycleOwner,
+                                        cameraExecutor,
+                                        preview,
+                                        imageCapture
+                                    )
+                                }, ContextCompat.getMainExecutor(context))
                             }
-                        }, ContextCompat.getMainExecutor(context))
+                        }
 
-                        previewView
+
                     })
 
             }
@@ -244,28 +229,28 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
             ) {
 
                 Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
 
                     Button(modifier = Modifier.height(60.dp),
                         shape = RoundedCornerShape(10.dp),
                         onClick = {
-                            capturePhoto1(
-                                context, cameraController, imageHandler
-                            )
-                        }) {
-                        Text(text = "Take Photo 1")
-                    }
+                            when(typeButtonClicked){
+                                0->{
+                                    capturePhoto1(
+                                        context, cameraController, imageHandler
+                                    )
+                                }
+                                1->{
+                                    capturePhoto2(
+                                        context, imageHandler, imageCapture, cameraExecutor
+                                    )
+                                }
+                            }
 
-                    Button(modifier = Modifier.height(60.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        onClick = {
-                            capturePhoto2(
-                                context, imageHandler, imageCapture, cameraExecutor
-                            )
                         }) {
-                        Text(text = "Take Photo 2")
+                        Text(text = "Take Photo", fontSize = 12.sp)
                     }
                 }
             }
@@ -274,6 +259,43 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
         LaunchedEffect(Unit) {
             cameraPermissionState.launchPermissionRequest()
         }
+    }
+}
+
+private fun bindCameraUseCases(
+    cameraProvider: ProcessCameraProvider,
+    lifecycleOwner: LifecycleOwner,
+    cameraExecutor: ExecutorService,
+    preview: Preview,
+    imageCapture: ImageCapture?
+) {
+
+    val resolutionSelector = ResolutionSelector.Builder().setResolutionStrategy(
+        ResolutionStrategy(
+            Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_NONE
+        )
+    ).build()
+
+    val imageAnalyzer = ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
+        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build().also {
+            it.setAnalyzer(cameraExecutor, ImageAnalysis.Analyzer { image ->
+                // Your image analysis logic here
+                image.close()
+            })
+        }
+
+    val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+    try {
+        cameraProvider.unbindAll()
+        cameraProvider.bindToLifecycle(
+            lifecycleOwner, cameraSelector, preview, imageAnalyzer, imageCapture
+        )
+    } catch (exc: Exception) {
+        // Handle any errors
+        Log.e("ERRROR", exc.message, exc)
+//                                cameraProvider.unbindAll()
+        cameraExecutor.shutdown()
     }
 }
 
