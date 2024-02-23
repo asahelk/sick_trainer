@@ -9,6 +9,8 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -70,6 +72,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import utils.rotateFrontBitmap
 
 
 class AndroidPlatform : Platform {
@@ -185,16 +188,18 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                         val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
                         cameraProvider.unbindAll()
 
-                        when(typeButtonClicked){
-                            0-> {
+                        when (typeButtonClicked) {
+                            0 -> {
                                 previewView.controller = cameraController
                                 cameraController.unbind()
                                 cameraController.bindToLifecycle(lifecycleOwner)
-                                cameraController.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                                cameraController.cameraSelector =
+                                    CameraSelector.DEFAULT_FRONT_CAMERA
                                 cameraController.imageCaptureMode =
-                                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                                    ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
                             }
-                            1->{
+
+                            1 -> {
 
                                 cameraProviderFuture.addListener({
 
@@ -204,6 +209,8 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
 
                                     imageCapture = ImageCapture.Builder()
                                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                                        .setJpegQuality(100)
+//                                        .setTargetRotation(Surface.ROTATION_270)
                                         .build()
 
                                     bindCameraUseCases(
@@ -221,6 +228,7 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                     })
 
             }
+            
             Column(
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier
@@ -229,20 +237,20 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
             ) {
 
                 Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()
                 ) {
 
                     Button(modifier = Modifier.height(60.dp),
                         shape = RoundedCornerShape(10.dp),
                         onClick = {
-                            when(typeButtonClicked){
-                                0->{
+                            when (typeButtonClicked) {
+                                0 -> {
                                     capturePhoto1(
                                         context, cameraController, imageHandler
                                     )
                                 }
-                                1->{
+
+                                1 -> {
                                     capturePhoto2(
                                         context, imageHandler, imageCapture, cameraExecutor
                                     )
@@ -287,7 +295,7 @@ private fun bindCameraUseCases(
     val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
     try {
-        cameraProvider.unbindAll()
+//        cameraProvider.unbindAll()
         cameraProvider.bindToLifecycle(
             lifecycleOwner, cameraSelector, preview, imageAnalyzer, imageCapture
         )
@@ -306,12 +314,14 @@ private fun capturePhoto2(
     cameraExecutorService: ExecutorService
 ) {
 
-    imageCapture?.takePicture(
-        cameraExecutorService,
+
+    imageCapture?.takePicture(cameraExecutorService,
         object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 val correctedBitmap: Bitmap =
-                    image.toBitmap().rotateBitmap(image.imageInfo.rotationDegrees)
+                    image.toBitmap().rotateFrontBitmap(image.imageInfo.rotationDegrees)
+
+                Log.e("ROTATION","ROTATION!"+image.imageInfo.rotationDegrees)
 
 //            onPhotoCaptured(correctedBitmap)
                 imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
@@ -326,9 +336,6 @@ private fun capturePhoto2(
 
     val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
 
-    val imageCapture = ImageCapture.Builder()
-//        .setTargetRotation()
-        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
 }
 
@@ -343,8 +350,9 @@ private fun capturePhoto1(
     cameraController.takePicture(mainExecutor, object : ImageCapture.OnImageCapturedCallback() {
         override fun onCaptureSuccess(image: ImageProxy) {
             val correctedBitmap: Bitmap =
-                image.toBitmap().rotateBitmap(image.imageInfo.rotationDegrees)
+                image.toBitmap().rotateFrontBitmap(image.imageInfo.rotationDegrees)
 
+            Log.e("ROTATION","ROTATION!"+image.imageInfo.rotationDegrees)
 //            onPhotoCaptured(correctedBitmap)
             imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
             image.close()
