@@ -1,4 +1,5 @@
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -6,12 +7,14 @@ import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
-import android.view.OrientationEventListener
-import android.view.Surface
+import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -62,7 +65,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import utils.rotateBitmap
+import utils.rotateFrontBitmap
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,9 +73,6 @@ import java.util.Objects
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import utils.rotateFrontBitmap
 
 
 class AndroidPlatform : Platform {
@@ -158,6 +158,8 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
         Executors.newSingleThreadExecutor()
     }
 
+    val handler = Handler(Looper.getMainLooper())
+
     val cameraPermissionState: PermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     if (cameraPermissionState.status.isGranted) {
@@ -197,6 +199,16 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                                     CameraSelector.DEFAULT_FRONT_CAMERA
                                 cameraController.imageCaptureMode =
                                     ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
+
+                                val captureTask = object : Runnable {
+                                    override fun run() {
+                                        capturePhoto1(
+                                            context, cameraController, imageHandler
+                                        )
+                                        handler.postDelayed(this, 5000)
+                                    }
+                                }
+                                handler.post(captureTask)
                             }
 
                             1 -> {
@@ -218,9 +230,21 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                                         lifecycleOwner,
                                         cameraExecutor,
                                         preview,
+                                        previewView,
                                         imageCapture
                                     )
                                 }, ContextCompat.getMainExecutor(context))
+
+
+                                val captureTask = object : Runnable {
+                                    override fun run() {
+                                        capturePhoto2(
+                                            context, imageHandler, imageCapture, cameraExecutor
+                                        )
+                                        handler.postDelayed(this, 5000)
+                                    }
+                                }
+                                handler.post(captureTask)
                             }
                         }
 
@@ -228,7 +252,7 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                     })
 
             }
-            
+
             Column(
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier
@@ -270,11 +294,29 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
     }
 }
 
+inline fun View.afterMeasured(crossinline block: () -> Unit) {
+    if (measuredWidth > 0 && measuredHeight > 0) {
+        block()
+    } else {
+        viewTreeObserver.addOnGlobalLayoutListener(object :
+            ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (measuredWidth > 0 && measuredHeight > 0) {
+                    viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    block()
+                }
+            }
+        })
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
 private fun bindCameraUseCases(
     cameraProvider: ProcessCameraProvider,
     lifecycleOwner: LifecycleOwner,
     cameraExecutor: ExecutorService,
     preview: Preview,
+    previewView: PreviewView,
     imageCapture: ImageCapture?
 ) {
 
@@ -287,7 +329,7 @@ private fun bindCameraUseCases(
     val imageAnalyzer = ImageAnalysis.Builder().setResolutionSelector(resolutionSelector)
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build().also {
             it.setAnalyzer(cameraExecutor, ImageAnalysis.Analyzer { image ->
-                // Your image analysis logic here
+                // Your image analysis logic  here
                 image.close()
             })
         }
@@ -296,9 +338,42 @@ private fun bindCameraUseCases(
 
     try {
 //        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(
+        val camera = cameraProvider.bindToLifecycle(
             lifecycleOwner, cameraSelector, preview, imageAnalyzer, imageCapture
         )
+
+//        previewView.afterMeasured {
+//            previewView.setOnTouchListener { _, event ->
+//                return@setOnTouchListener when (event.action) {
+//                    MotionEvent.ACTION_DOWN -> {
+//                        true
+//                    }
+//                    MotionEvent.ACTION_UP -> {
+//                        val factory: MeteringPointFactory = SurfaceOrientedMeteringPointFactory(
+//                            previewView.width.toFloat(), previewView.height.toFloat()
+//                        )
+//                        val autoFocusPoint = factory.createPoint(event.x, event.y)
+//                        try {
+//                            camera.cameraControl.startFocusAndMetering(
+//                                FocusMeteringAction.Builder(
+//                                    autoFocusPoint,
+//                                    FocusMeteringAction.FLAG_AF
+//                                ).apply {
+//                                    //focus only when the user tap the preview
+//                                    disableAutoCancel()
+//                                }.build()
+//                            )
+//                        } catch (e: CameraInfoUnavailableException) {
+//                            Log.d("ERROR", "cannot access camera", e)
+//                        }
+//                        true
+//                    }
+//                    else -> false // Unhandled event.
+//                }
+//            }
+//        }
+
+
     } catch (exc: Exception) {
         // Handle any errors
         Log.e("ERRROR", exc.message, exc)
@@ -321,7 +396,7 @@ private fun capturePhoto2(
                 val correctedBitmap: Bitmap =
                     image.toBitmap().rotateFrontBitmap(image.imageInfo.rotationDegrees)
 
-                Log.e("ROTATION","ROTATION!"+image.imageInfo.rotationDegrees)
+                Log.e("ROTATION", "ROTATION!" + image.imageInfo.rotationDegrees)
 
 //            onPhotoCaptured(correctedBitmap)
                 imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
@@ -352,7 +427,7 @@ private fun capturePhoto1(
             val correctedBitmap: Bitmap =
                 image.toBitmap().rotateFrontBitmap(image.imageInfo.rotationDegrees)
 
-            Log.e("ROTATION","ROTATION!"+image.imageInfo.rotationDegrees)
+            Log.e("ROTATION", "ROTATION!" + image.imageInfo.rotationDegrees)
 //            onPhotoCaptured(correctedBitmap)
             imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
             image.close()
