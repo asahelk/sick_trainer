@@ -1,10 +1,15 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
+//    kotlin("multiplatform")
+//    id("com.android.application")
+//    id("org.jetbrains.compose")
+//    id("com.google.devtools.ksp")
+
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsCompose)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -77,6 +82,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     dependencies {
+        //Koin
+        implementation(project.dependencies.platform(libs.koin.bom))
+        implementation(libs.koin.core)
+        implementation(libs.koin.android)
+        implementation(libs.koin.androidx.compose)
+
+        //Koin Annotations
+        implementation(libs.koin.annotations)
+        add("kspAndroid",libs.koin.ksp.compiler)
+//        ksp(libs.koin.ksp.compiler)
+
         debugImplementation(libs.compose.ui.tooling)
     }
     kotlin {

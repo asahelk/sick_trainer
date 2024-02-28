@@ -12,9 +12,9 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
-import android.view.View
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,6 +28,7 @@ import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
@@ -45,10 +46,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +68,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import utils.rotateFrontBitmap
 import java.io.File
 import java.text.SimpleDateFormat
@@ -138,6 +143,28 @@ actual fun TakePictureNativeView(imageHandler: ImageHandler, redraw: Int) {
     }
 }
 
+@Composable
+fun rememberRotationListener(context: Context): OrientationEventListener {
+    return remember(context) {
+        object : OrientationEventListener(context) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) {
+                    return
+                }
+                val rotation = when (orientation) {
+                    in 45 until 135 -> Surface.ROTATION_90
+                    in 135 until 225 -> Surface.ROTATION_0
+                    in 225 until 315 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+
+                Log.e("ROTTTT","xvd "+rotation)
+                // Do something with the rotation, e.g., update CameraX preview
+            }
+        }
+    }
+}
+
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -146,13 +173,27 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var imageCapture: ImageCapture? = null
-//    var cameraProvider: ProcessCameraProvider? by remember {
-//        mutableStateOf(null)
-//    }
-//    val cameraController: LifecycleCameraController? by remember { mutableStateOf(null)}
+    val coroutineScope = rememberCoroutineScope()
 
-    val cameraController = remember { LifecycleCameraController(context) }
+    val rotationListener = rememberRotationListener(context)
+
+    // Start listening for orientation changes when the composable is first composed
+    rotationListener.enable()
+
+    // Remember to disable the listener when the composable is removed from the composition
+    DisposableEffect(Unit) {
+        onDispose {
+            rotationListener.disable()
+        }
+    }
+
+    var imageCapture: ImageCapture? = null
+
+    val cameraController = remember {
+        LifecycleCameraController(context).apply {
+            setEnabledUseCases(CameraController.IMAGE_CAPTURE)
+        }
+    }
 
     val cameraExecutor: ExecutorService = remember {
         Executors.newSingleThreadExecutor()
@@ -200,30 +241,44 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                                 cameraController.imageCaptureMode =
                                     ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
 
-                                val captureTask = object : Runnable {
-                                    override fun run() {
-                                        capturePhoto1(
-                                            context, cameraController, imageHandler
-                                        )
-                                        handler.postDelayed(this, 5000)
-                                    }
+//                                coroutineScope.launch { //Give me error: camera not Initialized
+//                                    while (true) {
+//                                        if(cameraController.cameraInfo?.cameraState?.isInitialized !== null){
+//                                            capturePhoto1(
+//                                                context, cameraController, imageHandler
+//                                            )
+//                                            delay(5000)
+//                                        }
+//
+//                                    }
+//                                }
+
+                                val captureTask = runnable {
+                                    capturePhoto1(
+                                        context, cameraController, imageHandler
+                                    )
+                                    handler.postDelayed(this, 5000)
                                 }
                                 handler.post(captureTask)
                             }
 
                             1 -> {
 
+                                Log.e("ROTATION!", "->" + previewView.rotation)
+
                                 cameraProviderFuture.addListener({
 
                                     val preview = Preview.Builder().build().apply {
                                         setSurfaceProvider(previewView.surfaceProvider)
+                                        targetRotation = Surface.ROTATION_0
                                     }
 
                                     imageCapture = ImageCapture.Builder()
                                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                                         .setJpegQuality(100)
-//                                        .setTargetRotation(Surface.ROTATION_270)
+//                                        .setTargetRotation(Surface.ROTATION_90)
                                         .build()
+
 
                                     bindCameraUseCases(
                                         cameraProvider,
@@ -235,16 +290,23 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
                                     )
                                 }, ContextCompat.getMainExecutor(context))
 
-
-                                val captureTask = object : Runnable {
-                                    override fun run() {
+                                coroutineScope.launch {
+                                    while (true) {
                                         capturePhoto2(
                                             context, imageHandler, imageCapture, cameraExecutor
                                         )
-                                        handler.postDelayed(this, 5000)
+                                        delay(5000)
                                     }
                                 }
-                                handler.post(captureTask)
+
+//                                val captureTask = runnable {
+//                                    capturePhoto2(
+//                                        context, imageHandler, imageCapture, cameraExecutor
+//                                    )
+//                                    handler.postDelayed(this, 5000)
+//
+//                                }
+//                                handler.post(captureTask)
                             }
                         }
 
@@ -294,21 +356,25 @@ actual fun CameraContent(imageHandler: ImageHandler, typeButtonClicked: Int) {
     }
 }
 
-inline fun View.afterMeasured(crossinline block: () -> Unit) {
-    if (measuredWidth > 0 && measuredHeight > 0) {
-        block()
-    } else {
-        viewTreeObserver.addOnGlobalLayoutListener(object :
-            ViewTreeObserver.OnGlobalLayoutListener {
-            override fun onGlobalLayout() {
-                if (measuredWidth > 0 && measuredHeight > 0) {
-                    viewTreeObserver.removeOnGlobalLayoutListener(this)
-                    block()
-                }
-            }
-        })
-    }
+inline fun runnable(crossinline body: Runnable.() -> Unit) = object : Runnable {
+    override fun run() = this.body()
 }
+
+//inline fun View.afterMeasured(crossinline block: () -> Unit) {
+//    if (measuredWidth > 0 && measuredHeight > 0) {
+//        block()
+//    } else {
+//        viewTreeObserver.addOnGlobalLayoutListener(object :
+//            ViewTreeObserver.OnGlobalLayoutListener {
+//            override fun onGlobalLayout() {
+//                if (measuredWidth > 0 && measuredHeight > 0) {
+//                    viewTreeObserver.removeOnGlobalLayoutListener(this)
+//                    block()
+//                }
+//            }
+//        })
+//    }
+//}
 
 @SuppressLint("ClickableViewAccessibility")
 private fun bindCameraUseCases(
@@ -333,6 +399,8 @@ private fun bindCameraUseCases(
                 image.close()
             })
         }
+
+    imageAnalyzer.targetRotation = Surface.ROTATION_90
 
     val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
@@ -397,6 +465,8 @@ private fun capturePhoto2(
                     image.toBitmap().rotateFrontBitmap(image.imageInfo.rotationDegrees)
 
                 Log.e("ROTATION", "ROTATION!" + image.imageInfo.rotationDegrees)
+
+                Log.e("ORIENTATION!", "ORIENTATION!" + image.imageInfo.rotationDegrees)
 
 //            onPhotoCaptured(correctedBitmap)
                 imageHandler.onImageBitmapCaptured(correctedBitmap.asImageBitmap())
@@ -465,3 +535,5 @@ fun Context.createImageFile(): File {
     )
     return image
 }
+
+@Composable fun MainView() = App()

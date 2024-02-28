@@ -13,8 +13,10 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
+import com.taske.sicktrainer.SharedModule
 import kotlinx.cinterop.ExperimentalForeignApi
 import org.jetbrains.skia.Image
+import org.koin.core.context.startKoin
 import platform.UIKit.UIDevice
 
 class IOSPlatform : Platform {
@@ -50,6 +52,12 @@ fun passInByteArray(byteArray: ByteArray) {
 
 fun onCameraCancelled() {
     myImageHandler.onCancelled()
+}
+
+fun initKoin() {
+    startKoin {
+        modules(SharedModule().module)
+    }
 }
 
 

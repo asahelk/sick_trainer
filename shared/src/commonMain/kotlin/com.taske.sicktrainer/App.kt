@@ -1,0 +1,12 @@
+package com.taske.sicktrainer
+
+import CrackDetailScreen
+import androidx.compose.runtime.Composable
+import org.koin.compose.KoinContext
+
+@Composable
+fun App() {
+    KoinContext {
+        CrackDetailScreen()
+    }
+}

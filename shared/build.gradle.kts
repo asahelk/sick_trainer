@@ -1,22 +1,17 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
+import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.jetbrainsCompose)
+    alias(libs.plugins.ksp)
 
     kotlin("plugin.serialization") version "1.9.21"
 }
 
 kotlin {
     androidTarget()
-//    androidTarget {
-//        compilations.all {
-//            kotlinOptions {
-//                jvmTarget = "1.8"
-//            }
-//        }
-//    }
 
     listOf(
         iosX64(),
@@ -31,7 +26,20 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
+
+            kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+
             dependencies {
+
+                //KOIN
+                implementation(project.dependencies.platform(libs.koin.bom))
+                implementation(libs.koin.core)
+                implementation(libs.koin.compose)
+
+                //KOIN ANNOTATIONS
+                implementation(libs.koin.annotations)
+
+
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material)
@@ -92,9 +100,34 @@ kotlin {
     }
 }
 
+dependencies {
+    add("kspCommonMainMetadata", libs.koin.ksp.compiler)
+}
+
+// Ensure all Kotlin compile tasks depend on kspCommonMainKotlinMetadata for prior code processing.
+tasks.withType<KotlinCompile<*>>().configureEach {
+    if (name != "kspCommonMainKotlinMetadata") {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+
+// Make all SourcesJar tasks depend on kspCommonMainKotlinMetadata.
+afterEvaluate {
+    tasks.filter { task: Task ->
+        task.name.contains("SourcesJar", true)
+    }.forEach {
+        it.dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+
 android {
     namespace = "org.taske.sicktrainer.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+
+    sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
+    sourceSets["main"].res.srcDirs("src/androidMain/res")
+    sourceSets["main"].resources.srcDirs("src/commonMain/resources")
+
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
